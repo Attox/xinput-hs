@@ -4,7 +4,7 @@ where
 import           Data.List.Split
 import qualified Data.Text                     as DT
 import           Data.Maybe
-import Control.Monad.IO.Class
+import           Control.Monad.IO.Class
 import           System.Process
 import           Graphics.UI.Gtk
 import           Graphics.UI.Gtk.Builder
@@ -48,7 +48,7 @@ getProperties :: Device -> IO Device
 getProperties Device { name = n, status = s, deviceId = i } = do
   props <- readProcess "xinput" ["list-props", i] []
   let properties = map (DT.unpack . DT.strip . DT.pack) $ lines props
-  return $ Device { name = n, status = s, deviceId = i, values = properties }
+  return $ Device {name = n, status = s, deviceId = i, values = properties}
 
 onSelection :: ListStore Device -> TreeSelection -> ComboBox -> IO ()
 onSelection list tree combobox = do
