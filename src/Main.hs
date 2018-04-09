@@ -71,9 +71,9 @@ setLabels d p (deviceL, propL) = do
   entrySetText d deviceL
   entrySetText p propL
 
-currentPropertyIds
+getDeviceInformation
   :: ListStore Device -> TreeSelection -> ComboBox -> Entry -> Entry -> IO ()
-currentPropertyIds list tree textbox deviceL propL = do
+getDeviceInformation list tree textbox deviceL propL = do
   sel         <- treeSelectionGetSelectedRows tree
   selProperty <- comboBoxGetActiveText textbox
   v           <- listStoreGetValue list (head (head sel))
@@ -123,11 +123,11 @@ main = do
   --  events
   on treeview cursorChanged (onSelection list tree combobox)
   commitChange `on` buttonActivated $ run changeDevice changeProperty newValue
-  combobox `on` changed $ currentPropertyIds list
-                                             tree
-                                             combobox
-                                             changeDevice
-                                             changeProperty
+  combobox `on` changed $ getDeviceInformation list
+                                               tree
+                                               combobox
+                                               changeDevice
+                                               changeProperty
   -- run GUI
   window `on` deleteEvent $ liftIO mainQuit >> return False
   widgetShowAll window
