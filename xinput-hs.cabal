@@ -21,4 +21,4 @@ executable xinput-hs
                      , split
                      , text
                      , process
-                     , gtk
+                     , gtk3
