@@ -7,16 +7,11 @@ import           System.Process
 import           Graphics.UI.Gtk
 import           Graphics.UI.Gtk.ModelView as Model
 
-data Properties = Properties { devName     :: String
-                             , enabled     :: String
-                             , devId       :: String
-                             , transMatrix :: [String]
-                             , values      :: [String]
-                               } deriving (Show, Eq)
 
 data Device = Device { name     :: String
                      , deviceId :: String
                      , status   :: String
+                     , values :: [String]
                      } deriving (Show, Eq)
 
 formatName :: String -> String
@@ -30,36 +25,24 @@ parseDevices deviceList =
   map (map (DT.unpack . DT.strip . DT.pack) . splitOn "\t")
     $ splitOn "\n" deviceList
 
-parseProperties :: String -> [String] -> Properties
-parseProperties devId props = Properties
-  { devName     = a
-  , enabled     = status
-  , devId       = devId
-  , transMatrix = matrix
-  , values      = map (DT.unpack . DT.strip . DT.pack) rest
-  }
- where
-  (a : b : c : rest) = props
-  status             = DT.unpack $ DT.strip (DT.pack b)
-  matrix             = splitOn ", " . last $ splitOn "\t" c
-
 createDevRecord :: [String] -> Device
-createDevRecord deviceEntry = Device {name = a, deviceId = b, status = status}
+createDevRecord deviceEntry = Device {name = a, deviceId = b, status = status, values= v}
  where
   (name : id : status : rest) = deviceEntry
   a                           = formatName name
   b                           = formatId id
+  v = [""]
 
 getDevices :: IO [Device]
 getDevices = do
   n <- readProcess "xinput" ["--list", "--short"] []
   return $ map createDevRecord . parseDevices $ init n
 
-getProperties :: Device -> IO Properties
-getProperties device = do
-  props <- readProcess "xinput" ["list-props", devId] []
-  return . parseProperties devId . lines $ props
-  where devId = deviceId device
+getProperties :: Device -> IO Device
+getProperties Device { name=n, status=s, deviceId=i} = do
+  props <- readProcess "xinput" ["list-props", i] []
+  let properties = map (DT.unpack . DT.strip . DT.pack) $ lines props
+  return $ Device {name=n, status=s, deviceId=i, values=properties }
 
 onSelection :: ListStore Device -> Model.TreeSelection -> ComboBox -> IO ()
 onSelection list tree textview = do
@@ -94,7 +77,7 @@ currentPropertyIds list tree textbox deviceL propL = do
   case selProperty of
     Nothing -> return ()
     _       -> setLabels deviceL propL
-      $ populateLabels (fromJust selProperty) (devId props)
+      $ populateLabels (fromJust selProperty) (deviceId props)
 
 run :: Entry -> Entry -> Entry -> IO ()
 run devId propId newVal = do
