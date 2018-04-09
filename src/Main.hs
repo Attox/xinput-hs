@@ -4,6 +4,7 @@ where
 import           Data.List.Split
 import qualified Data.Text                     as DT
 import           Data.Maybe
+import Control.Monad.IO.Class
 import           System.Process
 import           Graphics.UI.Gtk
 import           Graphics.UI.Gtk.Builder
@@ -31,13 +32,12 @@ createDevRecord deviceEntry = Device
   { name     = a
   , deviceId = b
   , status   = status
-  , values   = v
+  , values   = [""]
   }
  where
   (name : id : status : rest) = deviceEntry
   a                           = formatName name
   b                           = formatId id
-  v                           = [""]
 
 getDevices :: IO [Device]
 getDevices = do
@@ -48,21 +48,20 @@ getProperties :: Device -> IO Device
 getProperties Device { name = n, status = s, deviceId = i } = do
   props <- readProcess "xinput" ["list-props", i] []
   let properties = map (DT.unpack . DT.strip . DT.pack) $ lines props
-  return $ Device {name = n, status = s, deviceId = i, values = properties}
+  return $ Device { name = n, status = s, deviceId = i, values = properties }
 
-onSelection :: ListStore Device -> TreeSelection -> ListStore DT.Text -> IO ()
-onSelection list tree propertyList = do
-  -- clear combox
-  listStoreClear propertyList
+onSelection :: ListStore Device -> TreeSelection -> ComboBox -> IO ()
+onSelection list tree combobox = do
   -- populate with properties of selected device
   sel <- treeSelectionGetSelectedRows tree
   let s = head (head sel)
   v     <- listStoreGetValue list s
   props <- getProperties v
-  mapM_ (listStoreAppend propertyList. DT.pack) $ values props
+  comboBoxSetModelText combobox
+  mapM_ (comboBoxAppendText combobox . DT.pack) (values props)
 
-populateLabels :: ComboBoxText -> String -> (String, String)
-populateLabels properties device =
+parseLabels :: ComboBoxText -> String -> (String, String)
+parseLabels properties device =
   let n      = splitOn "\t" (DT.unpack properties)
       propId = take 3 . tail . last . words . head $ n
   in  (device, propId)
@@ -82,13 +81,13 @@ currentPropertyIds list tree textbox deviceL propL = do
   case selProperty of
     Nothing -> return ()
     _       -> setLabels deviceL propL
-      $ populateLabels (fromJust selProperty) (deviceId props)
+      $ parseLabels (fromJust selProperty) (deviceId props)
 
 run :: Entry -> Entry -> Entry -> IO ()
 run devId propId newVal = do
-  d       <- entryGetText devId 
-  p       <- entryGetText propId 
-  v       <- entryGetText newVal 
+  d       <- entryGetText devId
+  p       <- entryGetText propId
+  v       <- entryGetText newVal
   procOut <- readProcess "xinput" ["set-prop", d, p, v] []
   print procOut
 
@@ -109,10 +108,8 @@ main = do
   changeProperty <- builderGetObject builder castToEntry "entry2"
   newValue       <- builderGetObject builder castToEntry "entry3"
   commitChange   <- builderGetObject builder castToButton "button1"
-  box <- builderGetObject builder castToBox "box3"
-  combobox       <- comboBoxNewText
-  text <- comboBoxGetModelText combobox
   treeview       <- builderGetObject builder castToTreeView "treeview1"
+  combobox       <- builderGetObject builder castToComboBox "combobox1"
   -- treview that stores all our devices
   treeViewSetModel treeview list
   col      <- treeViewColumnNew -- column for our content
@@ -124,15 +121,14 @@ main = do
   tree <- treeViewGetSelection treeview
   treeSelectionSetMode tree SelectionSingle
   --  events
-  on treeview cursorChanged (onSelection list tree text)
+  on treeview cursorChanged (onSelection list tree combobox)
   commitChange `on` buttonActivated $ run changeDevice changeProperty newValue
   combobox `on` changed $ currentPropertyIds list
                                              tree
                                              combobox
                                              changeDevice
                                              changeProperty
-                                             
-  boxPackStart box combobox PackNatural 0
   -- run GUI
+  window `on` deleteEvent $ liftIO mainQuit >> return False
   widgetShowAll window
   mainGUI
