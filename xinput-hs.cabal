@@ -12,6 +12,7 @@ category:            Web
 build-type:          Simple
 cabal-version:       >=1.10
 extra-source-files:  README.md
+data-files:          gui.glade
 
 executable xinput-hs
   hs-source-dirs:      src

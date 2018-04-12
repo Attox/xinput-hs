@@ -8,12 +8,13 @@ import           Control.Monad.IO.Class
 import           System.Process
 import           Graphics.UI.Gtk
 import           Graphics.UI.Gtk.Builder
+import           Paths_xinput_hs (getDataFileName)
 
 
 data Device = Device { name     :: String
                      , deviceId :: String
                      , status   :: String
-                     , values :: [String]
+                     , values   :: [String]
                      } deriving (Show, Eq)
 
 formatName :: String -> String
@@ -40,9 +41,8 @@ createDevRecord deviceEntry = Device
   b                           = formatId id
 
 getDevices :: IO [Device]
-getDevices = do
-  n <- readProcess "xinput" ["--list", "--short"] []
-  return $ map createDevRecord . parseDevices $ init n
+getDevices = map createDevRecord . parseDevices . init
+ <$> readProcess "xinput" ["--list", "--short"] []
 
 getProperties :: Device -> IO Device
 getProperties Device { name = n, status = s, deviceId = i } = do
@@ -97,7 +97,8 @@ main = do
   initGUI
   n       <- getDevices
   builder <- builderNew
-  builderAddFromFile builder "./gui.glade"
+  guiPath <- getDataFileName "gui.glade"
+  builderAddFromFile builder guiPath
   -- setup basic UI elements
   list           <- listStoreNew n --store this
   window         <- builderGetObject builder castToWindow "window1"
